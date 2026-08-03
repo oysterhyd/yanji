@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+/.npm-cache
 /.pnp
 .pnp.*
 .yarn/*
@@ -19,6 +20,10 @@
 
 # production
 /build
+/data
+/output/playwright
+/.playwright-cli
+/.playwright-mcp
 
 # misc
 .DS_Store
@@ -39,3 +44,5 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+server.log
+server.err.log
