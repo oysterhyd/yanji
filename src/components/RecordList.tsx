@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BookOpenCheck, ChevronLeft, ChevronRight, Filter, Plus, Search, X } from "lucide-react";
 import { RecordSummary } from "@/lib/db";
@@ -37,9 +38,16 @@ export default function RecordList({
   tags,
 }: RecordListProps) {
   const router = useRouter();
+  const [kwInput, setKwInput] = useState(kw);
+  const [prevKw, setPrevKw] = useState(kw);
+
+  if (prevKw !== kw) {
+    setPrevKw(kw);
+    setKwInput(kw);
+  }
 
   const buildHref = (patch: Partial<{ subject: string; category: string; tag: string; kw: string; page: number }>) => {
-    const next = { subject, category, tag, kw, page, ...patch };
+    const next = { subject, category, tag, kw: kwInput, page, ...patch };
     const sp = new URLSearchParams();
     if (next.subject) sp.set("subject", next.subject);
     if (next.category) sp.set("category", next.category);
@@ -54,8 +62,17 @@ export default function RecordList({
     router.replace(buildHref(patch));
   };
 
+  useEffect(() => {
+    if (kwInput === kw) return;
+    const timer = setTimeout(() => update({ kw: kwInput, page: 1 }), 300);
+    return () => clearTimeout(timer);
+  });
+
   const hasFilters = Boolean(subject || category || tag || kw);
-  const resetFilters = () => update({ subject: "", category: "", tag: "", kw: "", page: 1 });
+  const resetFilters = () => {
+    setKwInput("");
+    update({ subject: "", category: "", tag: "", kw: "", page: 1 });
+  };
 
   return (
     <div className="page-shell">
@@ -89,7 +106,7 @@ export default function RecordList({
           </div>
           <label className="relative block">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" size={15} />
-            <input value={kw} onChange={(event) => update({ kw: event.target.value, page: 1 })} placeholder="搜索题目或来源" className="field-control pl-9" />
+            <input value={kwInput} onChange={(event) => setKwInput(event.target.value)} placeholder="搜索题目或来源" className="field-control pl-9" />
           </label>
           <div>
             <label className="field-label">科目</label>
