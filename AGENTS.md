@@ -47,6 +47,8 @@ For every change, run `npm test`, `npm run lint`, and `npm run build`. For UI or
 
 Use short, imperative commit subjects such as `Fix review-state update`. Pull requests should explain the behavior change, list validation commands, link an issue when applicable, and include screenshots or a short recording for UI changes. Call out changes to local data or environment configuration.
 
+After finishing any code change, update AGENTS.md and README.md to reflect it (project structure, commands, conventions, or feature list) and include the doc updates in the same commit.
+
 ## Security & Framework Notes
 
 Keep secrets and machine-specific settings in `.env.local`; never commit them. SQLite files and uploaded images are local runtime data and must not be exposed through new public routes without deliberate access controls. Temporary uploads should only be promoted to permanent attachments when a record is saved. Before changing Next.js APIs, consult the version-matched guidance in `node_modules/next/dist/docs/`.
