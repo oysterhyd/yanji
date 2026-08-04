@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { getRecord, saveReviewState } from "@/lib/db";
+import { getRecord, recordReview, saveReviewState } from "@/lib/db";
 import { GRADE, sm2 } from "@/lib/sm2";
 
 export const dynamic = "force-dynamic";
@@ -23,5 +23,6 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     grade
   );
   saveReviewState(recordId, state);
+  recordReview(recordId, grade);
   return Response.json(state);
 }

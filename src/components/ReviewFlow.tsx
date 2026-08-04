@@ -94,7 +94,7 @@ export default function ReviewFlow({ initial }: { initial: RecordWithReview[] })
         <section className="border-y border-[var(--line)] bg-[var(--surface)] px-5 py-7 sm:px-8">
           <div className="field-label">题目</div>
           <MathView content={record.question} className="text-[16px]" />
-          <ImageStrip value={record.question_images || record.image} label="题目原图" />
+          <ImageStrip value={record.question_images} label="题目原图" />
         </section>
 
         {!revealed ? (

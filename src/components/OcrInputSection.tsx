@@ -16,6 +16,31 @@ interface PendingImage {
   url: string;
 }
 
+const MAX_COMPRESS_BYTES = 2 * 1024 * 1024;
+const MAX_SIDE = 2048;
+
+async function compressImage(file: File): Promise<File> {
+  if (file.size <= MAX_COMPRESS_BYTES) return file;
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    bitmap.close();
+    return file;
+  }
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+  const blob = await new Promise<Blob>((resolve, reject) =>
+    canvas.toBlob((result) => (result ? resolve(result) : reject(new Error("图片压缩失败"))), "image/jpeg", 0.85)
+  );
+  return new File([blob], file.name.replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" });
+}
+
 export default function OcrInputSection({
   kind,
   subject,
@@ -62,8 +87,9 @@ export default function OcrInputSection({
     setLoading(true);
     setError("");
     try {
+      const compressed = await Promise.all(pending.map((item) => compressImage(item.file)));
       const form = new FormData();
-      pending.forEach((item) => form.append("files", item.file, item.file.name));
+      compressed.forEach((file) => form.append("files", file, file.name));
       const uploadResponse = await fetch("/api/upload", { method: "POST", body: form });
       const uploadBody = await uploadResponse.json();
       if (!uploadResponse.ok) throw new Error(uploadBody.error ?? "上传失败");

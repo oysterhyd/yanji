@@ -9,8 +9,8 @@ export function normalizeImageNames(value: unknown): string[] {
     .filter(Boolean);
 }
 
-export function recordImageNames(record: { image?: string; question_images?: string; answer_images?: string }): string[] {
-  return [record.question_images, record.answer_images, record.image]
+export function recordImageNames(record: { question_images?: string; answer_images?: string }): string[] {
+  return [record.question_images, record.answer_images]
     .flatMap((value) => String(value ?? "").split(","))
     .map((name) => path.basename(name.trim()))
     .filter(Boolean);

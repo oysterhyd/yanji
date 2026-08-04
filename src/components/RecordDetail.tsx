@@ -4,11 +4,12 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, CalendarClock, Edit3, ExternalLink, Save, Trash2 } from "lucide-react";
+import { ArrowLeft, CalendarClock, Edit3, ExternalLink, Trash2 } from "lucide-react";
 import { RecordWithReview } from "@/lib/db";
-import { CATEGORIES, formatDate, SUBJECT_LABEL, SUBJECTS } from "@/lib/constants";
+import { formatDate, SUBJECT_LABEL } from "@/lib/constants";
 import MathView from "./MathView";
-import OcrInputSection, { SavedImage } from "./OcrInputSection";
+import RecordForm, { RecordFormValues } from "./RecordForm";
+import { SavedImage } from "./OcrInputSection";
 
 function toImages(value: string): SavedImage[] {
   return value.split(",").filter(Boolean).map((name) => ({ name, url: `/api/images/${name}` }));
@@ -33,78 +34,47 @@ function ImageGallery({ title, images }: { title: string; images: SavedImage[] }
 
 export default function RecordDetail({ record }: { record: RecordWithReview }) {
   const router = useRouter();
-  const initialQuestionImages = toImages(record.question_images || record.image);
+  const initialQuestionImages = toImages(record.question_images);
   const initialAnswerImages = toImages(record.answer_images);
   const [editing, setEditing] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [questionImages, setQuestionImages] = useState(initialQuestionImages);
   const [answerImages, setAnswerImages] = useState(initialAnswerImages);
-  const [form, setForm] = useState({
-    subject: record.subject,
-    category: record.category,
-    source: record.source,
-    tags: record.tags,
-    question: record.question,
-    answer: record.answer,
-    my_mistake: record.my_mistake,
-  });
 
-  const cleanupTemporaryImages = async () => {
-    const temporary = [...questionImages, ...answerImages].filter((item) => item.temporary).map((item) => item.name);
-    if (temporary.length === 0) return;
-    await fetch("/api/uploads/cleanup", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ images: temporary }),
-    });
-  };
-
-  const cancelEditing = async () => {
-    await cleanupTemporaryImages();
-    setForm({
-      subject: record.subject,
-      category: record.category,
-      source: record.source,
-      tags: record.tags,
-      question: record.question,
-      answer: record.answer,
-      my_mistake: record.my_mistake,
-    });
-    setQuestionImages(initialQuestionImages);
-    setAnswerImages(initialAnswerImages);
-    setError("");
-    setEditing(false);
-  };
-
-  const save = async () => {
-    if (!form.question.trim()) {
-      setError("题目内容不能为空");
-      return;
-    }
-    setSaving(true);
+  const submit = async (values: RecordFormValues) => {
     setError("");
     try {
       const response = await fetch(`/api/records/${record.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...form,
-          question_images: questionImages.map((item) => item.name),
-          answer_images: answerImages.map((item) => item.name),
+          subject: values.subject,
+          category: values.category,
+          source: values.source,
+          tags: values.tags,
+          question: values.question,
+          answer: values.answer,
+          my_mistake: values.my_mistake,
+          question_images: values.questionImages.map((image) => image.name),
+          answer_images: values.answerImages.map((image) => image.name),
         }),
       });
       const body = await response.json();
-      if (!response.ok) throw new Error(body.error ?? "保存失败");
-      setQuestionImages(questionImages.map((item) => ({ ...item, temporary: false })));
-      setAnswerImages(answerImages.map((item) => ({ ...item, temporary: false })));
+      if (!response.ok) return { ok: false, error: body.error ?? "保存失败" };
+      setQuestionImages(values.questionImages.map((image) => ({ ...image, temporary: false })));
+      setAnswerImages(values.answerImages.map((image) => ({ ...image, temporary: false })));
       setEditing(false);
       router.refresh();
+      return { ok: true };
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "保存失败");
-    } finally {
-      setSaving(false);
+      return { ok: false, error: caught instanceof Error ? caught.message : "保存失败" };
     }
+  };
+
+  const cancel = () => {
+    setQuestionImages(initialQuestionImages);
+    setAnswerImages(initialAnswerImages);
+    setEditing(false);
   };
 
   const remove = async () => {
@@ -120,63 +90,28 @@ export default function RecordDetail({ record }: { record: RecordWithReview }) {
 
   if (editing) {
     return (
-      <div className="page-shell">
-        <header className="flex flex-col gap-5 border-b border-[var(--line)] pb-6 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <button type="button" onClick={() => void cancelEditing()} className="mb-4 inline-flex items-center gap-2 text-xs text-[var(--muted)] hover:text-[var(--foreground)]"><ArrowLeft size={14} />退出编辑</button>
-            <h1 className="page-title">编辑错题</h1>
-            <p className="page-description">重新识别图片或直接修正文稿，保存前核对右侧预览。</p>
-          </div>
-          <div className="flex gap-2">
-            <button type="button" onClick={() => void cancelEditing()} className="secondary-button">取消</button>
-            <button type="button" onClick={() => void save()} disabled={saving} className="primary-button"><Save size={15} />{saving ? "保存中…" : "保存修改"}</button>
-          </div>
-        </header>
-
-        <section className="grid gap-4 border-b border-[var(--line)] py-6 md:grid-cols-4">
-          <div>
-            <label className="field-label">科目</label>
-            <select value={form.subject} onChange={(event) => setForm({ ...form, subject: event.target.value as "math" | "cs408", category: "" })} className="field-control">
-              {SUBJECTS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="field-label">分类</label>
-            <select value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })} className="field-control">
-              <option value="">未分类</option>
-              {CATEGORIES[form.subject].map((item) => <option key={item} value={item}>{item}</option>)}
-            </select>
-          </div>
-          <div><label className="field-label">来源</label><input value={form.source} onChange={(event) => setForm({ ...form, source: event.target.value })} className="field-control" /></div>
-          <div><label className="field-label">标签</label><input value={form.tags} onChange={(event) => setForm({ ...form, tags: event.target.value })} className="field-control" /></div>
-        </section>
-
-        <div className="grid gap-8 pt-7 xl:grid-cols-[minmax(0,1.04fr)_minmax(420px,.96fr)]">
-          <div className="space-y-9">
-            <section>
-              <h2 className="mb-4 text-base font-semibold">题目</h2>
-              <OcrInputSection kind="question" subject={form.subject} value={form.question} onChange={(value) => setForm({ ...form, question: value })} images={questionImages} onImagesChange={setQuestionImages} />
-              <label className="field-label mt-5">题目 Markdown + LaTeX</label>
-              <textarea rows={12} value={form.question} onChange={(event) => setForm({ ...form, question: event.target.value })} className="field-control resize-y font-mono text-[13px] leading-6" />
-            </section>
-            <section className="border-t border-[var(--line)] pt-8">
-              <h2 className="mb-4 text-base font-semibold">答案与解析</h2>
-              <OcrInputSection kind="answer" subject={form.subject} value={form.answer} onChange={(value) => setForm({ ...form, answer: value })} images={answerImages} onImagesChange={setAnswerImages} />
-              <label className="field-label mt-5">答案 Markdown + LaTeX</label>
-              <textarea rows={10} value={form.answer} onChange={(event) => setForm({ ...form, answer: event.target.value })} className="field-control resize-y font-mono text-[13px] leading-6" />
-            </section>
-            <section className="border-t border-[var(--line)] pt-8"><label className="field-label">我的错因</label><input value={form.my_mistake} onChange={(event) => setForm({ ...form, my_mistake: event.target.value })} className="field-control" /></section>
-          </div>
-          <aside className="xl:sticky xl:top-8 xl:self-start">
-            <div className="border-b border-[var(--line)] pb-3 text-sm font-semibold">实时预览</div>
-            <div className="divide-y divide-[var(--line)] border-b border-[var(--line)] bg-[var(--surface)]">
-              <section className="min-h-52 px-5 py-5"><div className="field-label">题目</div><MathView content={form.question} /></section>
-              <section className="min-h-44 px-5 py-5"><div className="field-label">答案与解析</div>{form.answer ? <MathView content={form.answer} /> : <p className="text-sm text-[var(--muted)]">答案尚未录入。</p>}</section>
-            </div>
-            {error && <p className="mt-4 text-sm text-[var(--danger)]">{error}</p>}
-          </aside>
-        </div>
-      </div>
+      <RecordForm
+        title="编辑错题"
+        description="重新识别图片或直接修正文稿，保存前核对右侧预览。"
+        backLabel="退出编辑"
+        cancelLabel="取消"
+        submitLabel="保存修改"
+        submitBusyLabel="保存中…"
+        confirmCancelMessage="放弃本次编辑的修改？"
+        initial={{
+          subject: record.subject,
+          category: record.category,
+          source: record.source,
+          tags: record.tags,
+          question: record.question,
+          answer: record.answer,
+          my_mistake: record.my_mistake,
+          questionImages: [...questionImages],
+          answerImages: [...answerImages],
+        }}
+        onSubmit={submit}
+        onCancel={cancel}
+      />
     );
   }
 

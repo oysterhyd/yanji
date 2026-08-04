@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpenText, GraduationCap, Plus, RotateCcw } from "lucide-react";
+import { BookOpenText, ChartColumnBig, DatabaseBackup, GraduationCap, Plus, RotateCcw } from "lucide-react";
 
 const items = [
   { href: "/", label: "错题库", icon: BookOpenText },
   { href: "/new", label: "新增错题", icon: Plus },
   { href: "/review", label: "今日复习", icon: RotateCcw },
+  { href: "/stats", label: "统计", icon: ChartColumnBig },
+  { href: "/backup", label: "备份", icon: DatabaseBackup },
 ];
 
 export default function BottomNav() {

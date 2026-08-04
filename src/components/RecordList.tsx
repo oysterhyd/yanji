@@ -1,56 +1,61 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { BookOpenCheck, ChevronRight, Filter, Plus, Search, X } from "lucide-react";
-import { RecordWithReview } from "@/lib/db";
+import { useRouter } from "next/navigation";
+import { BookOpenCheck, ChevronLeft, ChevronRight, Filter, Plus, Search, X } from "lucide-react";
+import { RecordSummary } from "@/lib/db";
 import { CATEGORIES, formatDate, SUBJECT_LABEL } from "@/lib/constants";
 import MathView from "./MathView";
 
-export default function RecordList({
-  records,
-  dueCount,
-  total,
-  mastered,
-  now,
-}: {
-  records: RecordWithReview[];
-  dueCount: number;
+interface RecordListProps {
+  records: RecordSummary[];
   total: number;
+  page: number;
+  totalPages: number;
+  dueCount: number;
   mastered: number;
   now: number;
-}) {
-  const [subject, setSubject] = useState("");
-  const [category, setCategory] = useState("");
-  const [tag, setTag] = useState("");
-  const [kw, setKw] = useState("");
+  subject: string;
+  category: string;
+  tag: string;
+  kw: string;
+  tags: string[];
+}
 
-  const filtered = useMemo(() => {
-    const query = kw.trim().toLowerCase();
-    return records.filter((record) => {
-      if (subject && record.subject !== subject) return false;
-      if (category && record.category !== category) return false;
-      const tags = record.tags.split(",").map((item) => item.trim()).filter(Boolean);
-      if (tag && !tags.includes(tag)) return false;
-      if (!query) return true;
-      return `${record.question} ${record.answer} ${record.source} ${record.tags} ${record.my_mistake}`
-        .toLowerCase()
-        .includes(query);
-    });
-  }, [category, kw, records, subject, tag]);
+export default function RecordList({
+  records,
+  total,
+  page,
+  totalPages,
+  dueCount,
+  mastered,
+  now,
+  subject,
+  category,
+  tag,
+  kw,
+  tags,
+}: RecordListProps) {
+  const router = useRouter();
 
-  const allTags = useMemo(
-    () => Array.from(new Set(records.flatMap((record) => record.tags.split(",").map((item) => item.trim()).filter(Boolean)))).sort(),
-    [records]
-  );
+  const buildHref = (patch: Partial<{ subject: string; category: string; tag: string; kw: string; page: number }>) => {
+    const next = { subject, category, tag, kw, page, ...patch };
+    const sp = new URLSearchParams();
+    if (next.subject) sp.set("subject", next.subject);
+    if (next.category) sp.set("category", next.category);
+    if (next.tag) sp.set("tag", next.tag);
+    if (next.kw) sp.set("kw", next.kw);
+    if (next.page > 1) sp.set("page", String(next.page));
+    const query = sp.toString();
+    return query ? `/?${query}` : "/";
+  };
+
+  const update = (patch: Partial<{ subject: string; category: string; tag: string; kw: string; page: number }>) => {
+    router.replace(buildHref(patch));
+  };
 
   const hasFilters = Boolean(subject || category || tag || kw);
-  const resetFilters = () => {
-    setSubject("");
-    setCategory("");
-    setTag("");
-    setKw("");
-  };
+  const resetFilters = () => update({ subject: "", category: "", tag: "", kw: "", page: 1 });
 
   return (
     <div className="page-shell">
@@ -84,11 +89,11 @@ export default function RecordList({
           </div>
           <label className="relative block">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" size={15} />
-            <input value={kw} onChange={(event) => setKw(event.target.value)} placeholder="搜索题目或来源" className="field-control pl-9" />
+            <input value={kw} onChange={(event) => update({ kw: event.target.value, page: 1 })} placeholder="搜索题目或来源" className="field-control pl-9" />
           </label>
           <div>
             <label className="field-label">科目</label>
-            <select value={subject} onChange={(event) => { setSubject(event.target.value); setCategory(""); }} className="field-control">
+            <select value={subject} onChange={(event) => update({ subject: event.target.value, category: "", page: 1 })} className="field-control">
               <option value="">全部科目</option>
               <option value="math">数学</option>
               <option value="cs408">408</option>
@@ -96,27 +101,27 @@ export default function RecordList({
           </div>
           <div>
             <label className="field-label">分类</label>
-            <select value={category} onChange={(event) => setCategory(event.target.value)} className="field-control" disabled={!subject}>
+            <select value={category} onChange={(event) => update({ category: event.target.value, page: 1 })} className="field-control" disabled={!subject}>
               <option value="">全部分类</option>
               {subject && CATEGORIES[subject].map((item) => <option key={item} value={item}>{item}</option>)}
             </select>
           </div>
           <div>
             <label className="field-label">标签</label>
-            <select value={tag} onChange={(event) => setTag(event.target.value)} className="field-control" disabled={allTags.length === 0}>
+            <select value={tag} onChange={(event) => update({ tag: event.target.value, page: 1 })} className="field-control" disabled={tags.length === 0}>
               <option value="">全部标签</option>
-              {allTags.map((item) => <option key={item} value={item}>#{item}</option>)}
+              {tags.map((item) => <option key={item} value={item}>#{item}</option>)}
             </select>
           </div>
         </aside>
 
         <section className="min-w-0">
           <div className="mb-3 flex items-center justify-between text-xs text-[var(--muted)]">
-            <span>共 {filtered.length} 条记录</span>
+            <span>共 {total} 条记录</span>
             <span className="hidden sm:inline">按录入时间倒序</span>
           </div>
           <div className="overflow-hidden border-y border-[var(--line)]">
-            {filtered.length === 0 ? (
+            {records.length === 0 ? (
               <div className="grid min-h-64 place-items-center bg-[var(--surface)] px-6 text-center">
                 <div>
                   <BookOpenCheck className="mx-auto text-[var(--muted)]" size={28} strokeWidth={1.5} />
@@ -125,7 +130,7 @@ export default function RecordList({
                   {hasFilters && <button onClick={resetFilters} className="secondary-button mt-4"><X size={14} />清除筛选</button>}
                 </div>
               </div>
-            ) : filtered.map((record) => {
+            ) : records.map((record) => {
               const overdue = record.due_date > 0 && record.due_date <= now;
               return (
                 <Link key={record.id} href={`/records/${record.id}`} className="group grid gap-3 border-b border-[var(--line)] bg-[var(--surface)] px-4 py-4 transition-colors last:border-b-0 hover:bg-[var(--surface-strong)] sm:grid-cols-[128px_minmax(0,1fr)_160px_22px] sm:items-center sm:px-5">
@@ -149,6 +154,26 @@ export default function RecordList({
               );
             })}
           </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-5 text-xs text-[var(--muted)]">
+              <Link
+                href={buildHref({ page: page - 1 })}
+                aria-disabled={page <= 1}
+                className={`inline-flex items-center gap-1 ${page <= 1 ? "pointer-events-none opacity-40" : "hover:text-[var(--foreground)]"}`}
+              >
+                <ChevronLeft size={14} />上一页
+              </Link>
+              <span>第 {page} / {totalPages} 页</span>
+              <Link
+                href={buildHref({ page: page + 1 })}
+                aria-disabled={page >= totalPages}
+                className={`inline-flex items-center gap-1 ${page >= totalPages ? "pointer-events-none opacity-40" : "hover:text-[var(--foreground)]"}`}
+              >
+                下一页<ChevronRight size={14} />
+              </Link>
+            </div>
+          )}
         </section>
       </div>
     </div>

@@ -60,6 +60,7 @@ export async function ocrImages(filenames: string[], subject: string, kind: OcrK
   const res = await fetch(`${API_BASE}/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${API_KEY}` },
+    signal: AbortSignal.timeout(60_000),
     body: JSON.stringify({
       model: MODEL,
       temperature: 0.1,
@@ -74,6 +75,8 @@ export async function ocrImages(filenames: string[], subject: string, kind: OcrK
         },
       ],
     }),
+  }).catch(() => {
+    throw new Error("识别超时，请稍后重试或减少图片数量");
   });
 
   if (!res.ok) {
